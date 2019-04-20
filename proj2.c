@@ -29,9 +29,10 @@
 //***************************************//
 //                FUNCTIONS              //
 //***************************************//
-int control(int argc, char *argv[]);
+int control(int argc, char *argv[], int *P2, int *H2, int *S2, int *R2, int *W2, int *C2);
 void hack1();
 void serf1();
+void boarding();
 
 //***************************************//
 //       DEFINES && GLOBAL VARIABLES     //
@@ -43,17 +44,19 @@ sem_t *semaphore2;
 #define shmHACK "/ios-proj2-hack"
 #define shmSERF "/ios-proj2-serf"
 #define shmMOLO "/ios-proj2-molo"
+#define shmHACKMOLO "/ios-proj2-hackmolo"
+#define shmSERFMOLO "/ios-proj2-serfmolo"
+int P, H, S, R, W, C;
 
 int main(int argc, char *argv[])
 {
     setbuf(stdout,NULL);
     setbuf(stderr,NULL);
 
-    int controler = control(argc, argv);
+    int controler = control(argc, argv, &P, &H, &S, &R, &W, &C);
     if (controler == -1){
         return -1;
     }
-
 
     /**************************************************************************************/
     /**                                      SEMAPHORES                                  **/
@@ -80,9 +83,9 @@ int main(int argc, char *argv[])
 
     int pidSerf, pidHack;
 
-    int *shm, *hack, *serf, *molo;
+    int *shm, *hack, *serf, *molo, *hackmolo, *serfmolo;
 
-    int shmID, hackID, serfID, moloID;
+    int shmID, hackID, serfID, moloID, serfmoloID, hackmoloID;
 
     pid_t consPID, prodPID;
 
@@ -94,22 +97,38 @@ int main(int argc, char *argv[])
     ftruncate(serfID, shmSIZE);
     moloID = shm_open(shmMOLO, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);    //GLOBAL INDEXING FOR MOLO CAPACITY
     ftruncate(moloID, shmSIZE);
+    hackmoloID = shm_open(shmHACKMOLO, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);    //GLOBAL INDEXING FOR MOLO CAPACITY
+    ftruncate(hackmoloID, shmSIZE);
+    serfmoloID = shm_open(shmSERFMOLO, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);    //GLOBAL INDEXING FOR MOLO CAPACITY
+    ftruncate(serfmoloID, shmSIZE);
+
     shm = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmID, 0);      //MMAP shm
     hack = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hackID, 0);    //MMAP hack
     serf = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, serfID, 0);    //MMAP serf
     molo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, moloID, 0);    //MMAP molo
+    hackmolo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hackmoloID, 0);    //MMAP molo
+    serfmolo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, serfmoloID, 0);    //MMAP molo
+
     close(shmID);
     close(hackID);
     close(serfID);
     close(moloID);
+    close(hackmoloID);
+    close(serfmoloID);
+
     *shm = 0;
     *hack = 0;
     *serf = 0;
     *molo = 0;
+    *hackmolo = 0;
+    *serfmolo = 0;
+
     munmap(shm, shmSIZE);
     munmap(hack, shmSIZE);
     munmap(serf, shmSIZE);
     munmap(molo, shmSIZE);
+    munmap(hackmolo, shmSIZE);
+    munmap(serfmolo, shmSIZE);
 
     /**************************************************************************************/
     /**                             2 MAIN PROCESSES [SERF/HACKER]                       **/
@@ -150,13 +169,15 @@ int main(int argc, char *argv[])
     shm_unlink(shmHACK);
     shm_unlink(shmSERF);
     shm_unlink(shmMOLO);
+    shm_unlink(shmHACKMOLO);
+    shm_unlink(shmSERFMOLO);
     sem_unlink(SEMAPHORE1_NAME);
     sem_unlink(SEMAPHORE2_NAME);
 
     return 0;
 }
 
-int control(int argc, char *argv[])
+int control(int argc, char *argv[], int *P2, int *H2, int *S2, int *R2, int *W2, int *C2)
 {
     if (argc != 7){
         fprintf(stderr, "Zle zadane argumenty!\n");
@@ -171,36 +192,42 @@ int control(int argc, char *argv[])
         fprintf(stderr, "Zle zadany argument 'P'!\n");
         return -1;
     }
+    *P2 = P;
 
     H = (int)strtol(argv[2], &pEnd, 10);
     if (strlen(pEnd) != 0 || H < 0 || H > 2000){
         fprintf(stderr, "Zle zadany argument 'H'!\n");
         return -1;
     }
+    *H2 = H;
 
     S = (int)strtol(argv[3], &pEnd, 10);
     if (strlen(pEnd) != 0 || S < 0 || S > 2000){
         fprintf(stderr, "Zle zadany argument 'S'!\n");
         return -1;
     }
+    *S2 = S;
 
     R = (int)strtol(argv[4], &pEnd, 10);
     if (strlen(pEnd) != 0 || R < 0 || R > 2000){
         fprintf(stderr, "Zle zadany argument 'R'!\n");
         return -1;
     }
+    *R2 = R;
 
     W = (int)strtol(argv[5], &pEnd, 10);
     if (strlen(pEnd) != 0 || W < 20 || W > 2000){
         fprintf(stderr, "Zle zadany argument 'W'!\n");
         return -1;
     }
+    *W2 = W;
 
     C = (int)strtol(argv[6], &pEnd, 10);
     if (strlen(pEnd) != 0 || C < 5){
         fprintf(stderr, "Zle zadany argument 'C'!\n");
         return -1;
     }
+    *C2 = C;
 
     return 0;
 }
@@ -213,24 +240,62 @@ void hack1() {
 
     int shmID;
     int hackID;
+    int moloID;
+    int hackmoloID;
+    int serfmoloID;
     int *shm;
     int *hack;
+    int *molo;
+    int *hackmolo;
+    int *serfmolo;
 
     shmID = shm_open(shmKEY, O_RDWR, S_IRUSR | S_IWUSR);
     hackID = shm_open(shmHACK, O_RDWR, S_IRUSR | S_IWUSR);
+    moloID = shm_open(shmMOLO, O_RDWR, S_IRUSR | S_IWUSR);
+    hackmoloID = shm_open(shmHACKMOLO, O_RDWR, S_IRUSR | S_IWUSR);
+    serfmoloID = shm_open(shmSERFMOLO, O_RDWR, S_IRUSR | S_IWUSR);
+
     shm = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmID, 0);
     hack = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hackID, 0);
+    molo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, moloID, 0);
+    hackmolo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hackmoloID, 0);
+    serfmolo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, serfmoloID, 0);
+
     close(shmID);
     close(hackID);
+    close(moloID);
+    close(hackmoloID);
+    close(serfmoloID);
 
-    for (int i=0; i<5; i++) {
+    for (int i = 0; i < P; i++) {
         pid_t pidHackFunc = fork();
         if (pidHackFunc == 0) {
-            sem_post(semaphore1);
-            sem_wait(semaphore2);
+            sem_wait(semaphore1);
             *shm = *shm + 1;
             *hack = *hack + 1;
-            fprintf(stdout, "%d: HACKER %d: starts\n", *shm, *hack);
+            fprintf(stdout, "%d : HACK %d : starts\n", *shm, *hack);
+            if (*molo <= C){
+                *hackmolo = *hackmolo + 1;
+                *molo = *molo + 1;
+                *shm = *shm + 1;
+                fprintf(stdout, "%d : HACK %d : waits : %d : %d\n", *shm, *hack, *hackmolo, *serfmolo);
+                if (*molo == 4 && ((*hackmolo == 2 && *serfmolo == 2) || *hackmolo == 4)){
+                    *shm = *shm + 1;
+                    *molo = *molo -4;
+                    if (*hackmolo == 2){
+                        *hackmolo = *hackmolo - 2;
+                        *serfmolo = *serfmolo - 2;
+                    } else {
+                        *hackmolo = *hackmolo - 4;
+                    }
+                    fprintf(stdout, "%d : HACK %d : boards: %d : %d\n", *shm, *hack, *hackmolo, *serfmolo);
+                    boarding();
+                }
+            }
+
+            //TODO SEMAPHORE
+            fprintf(stdout, "%d : HACK %d : member exits : %d : %d\n", *shm, *hack, *hackmolo, *serfmolo);
+            sem_post(semaphore2);
             exit(0);
         }
         else if(pidHackFunc > 0);
@@ -238,11 +303,14 @@ void hack1() {
             //handle error
             exit(1);
         }
-        usleep((useconds_t)random() % 2000);
+        usleep(((useconds_t)random() % H)*1000);
     }
 
     munmap(shm, shmSIZE);
     munmap(hack, shmSIZE);
+    munmap(molo, shmSIZE);
+    munmap(hackmolo, shmSIZE);
+    munmap(serfmolo, shmSIZE);
 }
 
 void serf1() {
@@ -253,25 +321,64 @@ void serf1() {
 
     int shmID;
     int serfID;
+    int moloID;
+    int hackmoloID;
+    int serfmoloID;
     int *shm;
     int *serf;
+    int *molo;
+    int *hackmolo;
+    int *serfmolo;
 
     // kontrola uspesnosti !!!
     shmID = shm_open(shmKEY, O_RDWR, S_IRUSR | S_IWUSR);
     serfID = shm_open(shmSERF, O_RDWR, S_IRUSR | S_IWUSR);
+    moloID = shm_open(shmMOLO, O_RDWR, S_IRUSR | S_IWUSR);
+    hackmoloID = shm_open(shmHACKMOLO, O_RDWR, S_IRUSR | S_IWUSR);
+    serfmoloID = shm_open(shmSERFMOLO, O_RDWR, S_IRUSR | S_IWUSR);
+
     shm = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmID, 0);
     serf = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, serfID, 0);
+    molo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, moloID, 0);
+    hackmolo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hackmoloID, 0);
+    serfmolo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, serfmoloID, 0);
+
     close(shmID);
     close(serfID);
+    close(moloID);
+    close(hackmoloID);
+    close(serfmoloID);
 
-    for (int i=0; i<5; i++) {
+    for (int i = 0; i < P; i++) {
         pid_t pidSerfFunc = fork();
         if (pidSerfFunc == 0){
-            sem_wait(semaphore1);
+            sem_post(semaphore1);
+            sem_wait(semaphore2);
             *serf = *serf + 1;
             *shm = *shm + 1;
-            fprintf(stdout, "%d: SERF %d: starts\n", *shm, *serf);
-            sem_post(semaphore2);
+            fprintf(stdout, "%d : SERF %d : starts\n", *shm, *serf);
+            if (*molo <= C){
+                *serfmolo = *serfmolo + 1;
+                *molo = *molo + 1;
+                *shm = *shm + 1;
+                fprintf(stdout, "%d : SERF %d : waits : %d : %d\n", *shm, *serf, *hackmolo, *serfmolo);
+                if (*molo == 4 && ((*hackmolo == 2 && *serfmolo == 2) || *serfmolo == 4)){
+                    *shm = *shm + 1;
+                    *molo = *molo -4;
+                    if (*serfmolo == 2){
+                        *hackmolo = *hackmolo - 2;
+                        *serfmolo = *serfmolo - 2;
+                    } else {
+                        *serfmolo = *serfmolo - 4;
+                    }
+
+                    fprintf(stdout, "%d : SERF %d : boards : %d : %d\n", *shm, *serf, *hackmolo, *serfmolo);
+                    boarding();
+                }
+            }
+
+            //TODO SEMAPHORE
+            fprintf(stdout, "%d : SERF %d : member exits : %d : %d\n", *shm, *serf, *hackmolo, *serfmolo);
             exit(0);
         }
         else if(pidSerfFunc > 0);
@@ -279,9 +386,56 @@ void serf1() {
             //handle error
             exit(1);
         }
-        usleep((useconds_t)random() % 2000);
+        usleep(((useconds_t)random() % S)*1000);
     }
 
     munmap(shm, shmSIZE);
     munmap(serf, shmSIZE);
+    munmap(molo, shmSIZE);
+    munmap(hackmolo, shmSIZE);
+    munmap(serfmolo, shmSIZE);
+}
+
+void boarding()
+{
+    int shmID;
+    int serfID;
+    int moloID;
+    int hackmoloID;
+    int serfmoloID;
+    int *shm;
+    int *serf;
+    int *molo;
+    int *hackmolo;
+    int *serfmolo;
+
+    // kontrola uspesnosti !!!
+    shmID = shm_open(shmKEY, O_RDWR, S_IRUSR | S_IWUSR);
+    serfID = shm_open(shmSERF, O_RDWR, S_IRUSR | S_IWUSR);
+    moloID = shm_open(shmMOLO, O_RDWR, S_IRUSR | S_IWUSR);
+    hackmoloID = shm_open(shmHACKMOLO, O_RDWR, S_IRUSR | S_IWUSR);
+    serfmoloID = shm_open(shmSERFMOLO, O_RDWR, S_IRUSR | S_IWUSR);
+
+    shm = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmID, 0);
+    serf = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, serfID, 0);
+    molo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, moloID, 0);
+    hackmolo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hackmoloID, 0);
+    serfmolo = (int*)mmap(NULL, shmSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, serfmoloID, 0);
+
+    close(shmID);
+    close(serfID);
+    close(moloID);
+    close(hackmoloID);
+    close(serfmoloID);
+
+    usleep(((useconds_t)random() % R));
+    //TODO UNLOCK SEMPAHORE TO PRINT EXIT
+    //TODO LOCK SEMAPHORE TO WAIT FOR ALL MEMBERS TO EXIT -> THEN ALLOW CAPTAIN TO LEAVE
+    fprintf(stdout, "%d : SERF %d : captain exits : %d : %d\n", *shm, *serf, *hackmolo, *serfmolo);
+
+    munmap(shm, shmSIZE);
+    munmap(serf, shmSIZE);
+    munmap(molo, shmSIZE);
+    munmap(hackmolo, shmSIZE);
+    munmap(serfmolo, shmSIZE);
 }
